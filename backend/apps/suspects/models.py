@@ -191,6 +191,7 @@ class Suspect(TimeStampedModel):
         source=[
             SuspectStatus.UNDER_PURSUIT,
             SuspectStatus.MOST_WANTED,
+            SuspectStatus.RELEASED_ON_BAIL,
         ],
         target=SuspectStatus.ARRESTED
     )
