@@ -7,6 +7,9 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from ..accounts.models import DefaultRoles
+from .models import EvidenceType
+
 from .models import Evidence, EvidenceAttachment, EvidenceStatus, EvidenceType, Testimony
 from .serializers import (
     AddLabResultSerializer,
@@ -32,7 +35,11 @@ class EvidenceViewSet(viewsets.ModelViewSet):
         
         if user.is_staff:
             return Evidence.objects.all()
-        
+
+        if user.has_role(DefaultRoles.CORONARY):
+            return Evidence.objects.filter(
+                models.Q(evidence_type=EvidenceType.BIOLOGICAL)
+            ).distinct()
         # Users see evidence from cases they're involved in
         return Evidence.objects.filter(
             models.Q(case__created_by=user) |
