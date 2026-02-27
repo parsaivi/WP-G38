@@ -22,7 +22,7 @@ class TrialViewSet(viewsets.ModelViewSet):
     queryset = Trial.objects.all()
     serializer_class = TrialSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["judge", "verdict"]
+    filterset_fields = ["case", "judge", "verdict"]
     ordering_fields = ["scheduled_date", "created_at"]
 
     @action(detail=True, methods=["post"])
@@ -36,6 +36,13 @@ class TrialViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def issue_verdict(self, request, pk=None):
         """Judge issues verdict."""
+        user_roles = request.user.get_roles()
+        if not request.user.is_staff and "Judge" not in user_roles:
+            return Response(
+                {"error": "Only Judge can issue verdicts."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         trial = self.get_object()
         serializer = VerdictSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -46,22 +53,25 @@ class TrialViewSet(viewsets.ModelViewSet):
         trial.ended_at = timezone.now()
         trial.save()
         
-        # Update case status
+        # Close the case - close_solved handles suspect conviction for GUILTY
         case = trial.case
-        if trial.verdict == VerdictChoice.GUILTY:
+        try:
             case.close_solved()
             case.save()
-            
-            # Update suspect statuses
-            for link in case.suspect_links.filter(role="primary"):
-                link.suspect.convict()
-                link.suspect.save()
+        except Exception:
+            pass  # Case may already be in a terminal state
         
         return Response(TrialSerializer(trial).data)
 
     @action(detail=True, methods=["post"])
     def add_sentence(self, request, pk=None):
         """Add sentence for a convicted suspect."""
+        user_roles = request.user.get_roles()
+        if not request.user.is_staff and "Judge" not in user_roles:
+            return Response(
+                {"error": "Only Judge can issue sentences."},
+                status=status.HTTP_403_FORBIDDEN
+            )
         trial = self.get_object()
         
         if trial.verdict != VerdictChoice.GUILTY:
@@ -88,10 +98,17 @@ class TrialViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def full_report(self, request, pk=None):
         """Get comprehensive case report for judge."""
+        user_roles = request.user.get_roles()
+        if not request.user.is_staff and not any(
+            role in ["Judge", "Captain", "Chief"] for role in user_roles
+        ):
+            return Response(
+                {"error": "Only Judge, Captain, or Chief can access full reports."},
+                status=status.HTTP_403_FORBIDDEN
+            )
         trial = self.get_object()
         case = trial.case
         
-        # Generate or get report
         report, created = CaseReport.objects.get_or_create(
             case=case,
             defaults={"generated_by": request.user}

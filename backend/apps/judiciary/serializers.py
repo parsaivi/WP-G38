@@ -22,7 +22,7 @@ class SentenceSerializer(serializers.ModelSerializer):
             "title", "description", "duration_days", "fine_amount",
             "created_at",
         ]
-        read_only_fields = ["issued_by"]
+        read_only_fields = ["issued_by", "trial"]
 
 
 class TrialSerializer(serializers.ModelSerializer):
@@ -49,9 +49,12 @@ class TrialSerializer(serializers.ModelSerializer):
         read_only_fields = ["verdict", "verdict_date"]
 
     def create(self, validated_data):
-        case_data = validated_data.pop("case")
         from apps.cases.models import Case
-        case = Case.objects.get(id=case_data["id"])
+        case_ref = validated_data.pop("case", None) or validated_data.pop("case_id", None)
+        if case_ref is None:
+            raise ValueError("case or case_id is required")
+        case_id = case_ref if isinstance(case_ref, int) else case_ref.get("id")
+        case = Case.objects.get(id=case_id)
         return Trial.objects.create(case=case, **validated_data)
 
 

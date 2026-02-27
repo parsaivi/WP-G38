@@ -191,6 +191,7 @@ class CaseReport(TimeStampedModel):
                 "detective_score": suspect.detective_guilt_score,
                 "sergeant_score": suspect.sergeant_guilt_score,
                 "captain_decision": suspect.captain_decision,
+                "chief_decision": suspect.chief_decision,
             })
         
         # Get case history
