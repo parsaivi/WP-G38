@@ -19,6 +19,7 @@ urlpatterns = [
     path("api/v1/suspects/", include("apps.suspects.urls")),
     path("api/v1/judiciary/", include("apps.judiciary.urls")),
     path("api/v1/rewards/", include("apps.rewards.urls")),
+    path("api/v1/bail/", include("apps.bail.urls")),
     path("api/v1/stats/", include("apps.stats.urls")),
     
     # API Documentation
