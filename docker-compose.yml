@@ -1,0 +1,142 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: police-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-police_db}
+      POSTGRES_USER: ${DB_USER:-police_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-police_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - police-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-police_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Backend API (Django)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: police-backend
+    environment:
+      DEBUG: ${DEBUG:-False}
+      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      DATABASE_URL: postgresql://${DB_USER:-police_user}:${DB_PASSWORD:-police_password}@db:5432/${DB_NAME:-police_db}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-police_db}
+      DB_USER: ${DB_USER:-police_user}
+      DB_PASSWORD: ${DB_PASSWORD:-police_password}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8000,http://localhost:8001,http://127.0.0.1:3000,http://127.0.0.1:3001}
+    volumes:
+      - ./backend:/app
+      - backend_staticfiles:/app/staticfiles
+      - backend_media:/app/media
+      - backend_logs:/app/logs
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - police-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/auth/profile/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py shell < scripts/load_default_roles.py || true &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120"
+
+  # Frontend (React)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_BASE_URL: ${REACT_APP_API_BASE_URL:-http://localhost:${BACKEND_PORT:-8000}/api/v1}
+    container_name: police-frontend
+    environment:
+      REACT_APP_API_BASE_URL: ${REACT_APP_API_BASE_URL:-http://localhost:${BACKEND_PORT:-8000}/api/v1}
+      REACT_APP_SITE_TITLE: ${REACT_APP_SITE_TITLE:-Police Department Management System}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+    networks:
+      - police-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  # Redis (Optional - for caching)
+  redis:
+    image: redis:7-alpine
+    container_name: police-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - police-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Nginx (Optional - for production)
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: police-nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - backend_staticfiles:/app/staticfiles:ro
+  #     - backend_media:/app/media:ro
+  #   depends_on:
+  #     - backend
+  #     - frontend
+  #   networks:
+  #     - police-network
+  #   restart: unless-stopped
+
+# Networks
+networks:
+  police-network:
+    driver: bridge
+
+# Volumes
+volumes:
+  postgres_data:
+    driver: local
+  backend_staticfiles:
+    driver: local
+  backend_media:
+    driver: local
+  backend_logs:
+    driver: local
+  redis_data:
+    driver: local
