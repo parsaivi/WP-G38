@@ -1,155 +1,175 @@
 # Police Department Management System
 
-A comprehensive web-based system for automating police department processes, built with **Django REST Framework** and **React**. The project is inspired by L.A. Noire and covers complaint handling, case investigation, evidence management, suspect tracking, trials, rewards, bail payment, and judicial proceedings.
+A full-stack web application for automating police department workflows, inspired by L.A. Noire. Citizens submit complaints and tips; cadets, officers, detectives, sergeants, captains, and chiefs investigate cases, manage evidence, interrogate suspects, and pursue Most Wanted; judges run trials; and bail can be paid online via the Zibal gateway.
 
-**Reference (Checkpoint)**: Full requirements and flows are documented in **[Doc.md](Doc.md)** (Persian).
+Built with **Django REST Framework** (backend) and **React 19** (frontend), packaged with **Docker Compose**, backed by **PostgreSQL** and **Redis**.
+
+Full functional and process specification (Persian): **[Doc.md](Doc.md)**.
 
 ---
 
 ## Table of Contents
 
-- [Project Overview](#-project-overview)
-- [Technology Stack](#-technology-stack)
-- [Project Structure](#-project-structure)
-- [Features](#-features)
-- [API Reference](#-api-reference)
-- [Frontend Pages](#-frontend-pages)
-- [Quick Start](#-quick-start)
-- [Testing](#-testing)
-- [Documentation](#-documentation)
+- [Project Overview](#project-overview)
+- [Technology Stack](#technology-stack)
+- [Project Structure](#project-structure)
+- [Features](#features)
+- [API Reference](#api-reference)
+- [Frontend Pages](#frontend-pages)
+- [Quick Start](#quick-start)
+- [Testing](#testing)
+- [Documentation](#documentation)
+- [Security & Conventions](#security--conventions)
 
 ---
 
-## 📋 Project Overview
+## Project Overview
 
-This project is part of the **Web Programming** course (Fall 1404, Faculty of Computer Engineering). The system digitizes police workflows: user registration and role-based access, complaint and case creation, evidence and forensics, detective board, suspect interrogation, Most Wanted ranking, rewards, trials, and optional bail payment via gateway.
+The system digitizes the end-to-end police workflow:
+
+- **Auth & RBAC** — registration, multi-field login, dynamic role management
+- **Complaints** — drafting, cadet/officer review, 3-strike invalidation
+- **Cases** — creation from crime scene, detective board, suspect identification, captain/chief approval, trial
+- **Evidence** — typed evidence (testimony, biological, vehicle, ID document, other), attachments, lab verification
+- **Suspects** — pursuit, Most Wanted ranking, arrest/clear, scoring & decisions
+- **Judiciary** — trials, verdicts, sentences, case reports
+- **Rewards (Tips)** — public tip submission, two-stage review, unique reward codes
+- **Bail** — bond creation and online payment via Zibal
+- **Stats** — public dashboard plus per-domain aggregations
 
 ### Design Principles
 
 - **RESTful** APIs with Django REST Framework
-- **Dynamic RBAC**: roles manageable without code changes (add/remove/change roles)
-- **Multi-field login**: username, email, phone, or national ID
-- **Maintainable & extensible** structure with separate apps per domain
+- **Dynamic RBAC** — roles add/remove/edit at runtime, no code change
+- **Multi-field login** — username, email, phone, or national ID
+- **Domain-separated apps** for maintainability and extensibility
+- **Containerized** — single-command bring-up via Docker Compose
 
 ---
 
-## 🏗️ Technology Stack
+## Technology Stack
 
 | Layer | Stack |
-|-------|--------|
-| **Backend** | Django, Django REST Framework (DRF) |
-| **Database** | PostgreSQL (SQLite for local dev) |
+|-------|-------|
+| **Backend** | Django 5, Django REST Framework |
+| **Database** | PostgreSQL 15 |
+| **Cache** | Redis 7 |
 | **Auth** | JWT (djangorestframework-simplejwt) |
 | **State Machine** | django-fsm (complaints, cases) |
 | **API Docs** | drf-spectacular (Swagger / ReDoc) |
-| **Frontend** | React 18+, React Router, Redux Toolkit |
-| **HTTP** | Axios |
+| **Filtering** | django-filter |
+| **Frontend** | React 19, React Router 6, Redux Toolkit |
+| **Styling** | Tailwind CSS 3 |
+| **HTTP Client** | Axios |
+| **Drag & Drop** | react-dnd (HTML5 backend) |
+| **Server** | Gunicorn (production) |
 | **DevOps** | Docker, Docker Compose |
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 .
 ├── backend/
 │   ├── apps/
-│   │   ├── accounts/       # Users, roles, auth (register, login, profile)
-│   │   ├── complaints/     # Complaint workflow (DRAFT → APPROVED / INVALIDATED)
-│   │   ├── cases/          # Case management, crime scene, detective board
-│   │   ├── evidence/       # Evidence types, attachments, verification
+│   │   ├── accounts/       # Users, roles, JWT auth, profile, RBAC
+│   │   ├── complaints/     # Complaint workflow (FSM)
+│   │   ├── cases/          # Cases, crime scene, detective board
+│   │   ├── evidence/       # Polymorphic evidence + attachments
 │   │   ├── suspects/       # Suspects, interrogations, Most Wanted
-│   │   ├── judiciary/      # Trials, verdicts, sentences, case reports
-│   │   ├── rewards/        # Tips, officer/detective review, reward codes
-│   │   ├── bail/           # Bail/bond creation, Zibal payment, callback
-│   │   ├── stats/          # Dashboard & aggregated statistics
-│   │   └── common/         # Shared models (e.g. CrimeSeverity)
-│   ├── config/             # Django settings, main urls
+│   │   ├── judiciary/      # Trials, verdicts, sentences, reports
+│   │   ├── rewards/        # Tips, reviews, reward codes
+│   │   ├── bail/           # Bail bonds + Zibal gateway
+│   │   ├── stats/          # Dashboard aggregations
+│   │   └── common/         # Shared models (CrimeSeverity, etc.)
+│   ├── config/             # Django settings + root URLs
+│   ├── scripts/            # init-db.sql, load_default_roles.py
 │   ├── manage.py
 │   ├── requirements.txt
 │   ├── Dockerfile
-│   └── docker-compose.yml
+│   └── docker-entrypoint.sh
 ├── frontend/
-│   └── src/
-│       ├── pages/          # Route-level pages
-│       ├── components/     # Navigation, PrivateRoute, Skeleton
-│       ├── store/          # Redux (auth, etc.)
-│       └── services/       # API clients
-├── Doc.md                  # Checkpoint & full specs (Persian)
+│   ├── src/
+│   │   ├── pages/          # 25 route-level pages
+│   │   ├── components/     # Navigation, PrivateRoute, Skeleton
+│   │   ├── store/          # Redux store (auth slice, etc.)
+│   │   ├── services/       # API clients (axios)
+│   │   ├── hooks/          # Custom hooks
+│   │   ├── styles/         # Tailwind/global styles
+│   │   └── utils/          # Helpers
+│   ├── public/
+│   ├── package.json
+│   ├── tailwind.config.js
+│   └── Dockerfile
+├── docker-compose.yml      # db, backend, frontend, redis
+├── run.sh                  # One-shot Docker bring-up script
 └── README.md               # This file
 ```
 
 ---
 
-## ✨ Features
+## Features
 
-### 1. User & Auth
-
-- **Registration**: username, password, email, phone, first/last name, national ID (all unique where required)
-- **Login**: by username, email, phone, or national ID + password
-- **JWT**: access + refresh tokens
-- **Profile**: GET/PUT current user
-- **Roles**: Dynamic RBAC; admin can assign/remove roles per user (`assign_roles`, `add_role`, `remove_role`)
-- **Default roles**: Administrator, Chief, Captain, Sergeant, Detective, Police Officer, Patrol Officer, Cadet, Complainant, Witness, Suspect, Criminal, Judge, Coronary, Base User
+### 1. Users & Auth
+- Registration with `username`, `password`, `email`, `phone`, `first/last name`, `national_id` (uniques enforced)
+- Login by **any** of: username, email, phone, national ID
+- JWT access + refresh tokens
+- `GET/PUT /auth/profile/` for current user
+- **Dynamic RBAC** — admin can manage roles at runtime via `assign_roles`, `add_role`, `remove_role`
+- Default roles: Administrator, Chief, Captain, Sergeant, Detective, Police Officer, Patrol Officer, Cadet, Complainant, Witness, Suspect, Criminal, Judge, Coronary, Base User
 
 ### 2. Complaints
-
-- **Create** (Complainant only), **Submit**, **Resubmit**
-- **Cadet**: assign, review, return to complainant (with message) or escalate to officer
-- **Officer**: return to cadet or approve
-- **3-strike rule**: invalidate after 3 incomplete submissions
-- **Multiple complainants**: add and approve via workflow
-- **Status flow**: DRAFT → SUBMITTED → CADET_REVIEW / OFFICER_REVIEW → APPROVED / RETURNED_* / INVALIDATED
+- Create (Complainant) → Submit → Cadet review → escalate to Officer → Approve / Return / Invalidate
+- `return_to_complainant` with message; complainant can `resubmit`
+- **3-strike rule** — auto invalidate after 3 incomplete submissions
+- Multiple complainants per complaint
+- Status flow: `DRAFT → SUBMITTED → CADET_REVIEW / OFFICER_REVIEW → APPROVED / RETURNED_* / INVALIDATED`
 
 ### 3. Cases
-
-- **Create** (admin) or **from_crime_scene** (police roles except Cadet); optional witnesses
-- **Approval**: one superior approves (Chief self-approves)
-- **Workflow**: CREATED → PENDING_APPROVAL → INVESTIGATION → SUSPECT_IDENTIFIED → INTERROGATION → PENDING_CAPTAIN → (optional PENDING_CHIEF) → TRIAL → CLOSED_SOLVED / CLOSED_UNSOLVED
-- **Actions**: assign_detective, start_investigation, identify_suspect, approve_suspects, reject_suspects, start_interrogation, submit_to_captain, captain_approve, escalate_to_chief, chief_approve, send_to_trial, close_solved, close_unsolved
-- **Detective board**: GET/PUT/PATCH board state (drag-and-drop, links); detective_board_cases list
-- **Extras**: add_witness, add_suspect, suspects list
+- Created by admin, or `from_crime_scene` by police roles (except Cadet); optional witnesses
+- One-superior approval (Chief self-approves)
+- Workflow: `CREATED → PENDING_APPROVAL → INVESTIGATION → SUSPECT_IDENTIFIED → INTERROGATION → PENDING_CAPTAIN → (PENDING_CHIEF) → TRIAL → CLOSED_SOLVED / CLOSED_UNSOLVED`
+- Actions: `assign_detective`, `start_investigation`, `identify_suspect`, `approve_suspects`, `reject_suspects`, `start_interrogation`, `submit_to_captain`, `captain_approve`, `escalate_to_chief`, `chief_approve`, `send_to_trial`, `close_solved`, `close_unsolved`
+- **Detective board** with drag-and-drop nodes and links (`GET/PUT/PATCH /cases/{id}/detective_board/`)
+- `add_witness`, `add_suspect`, `suspects` listing
 
 ### 4. Evidence
-
-- **Types**: Testimony, Biological, Vehicle, ID Document, Other (polymorphic)
-- **CRUD** + filters; **create_testimony** for full testimony payload
-- **Attachments**: upload_attachment (file), attachments list
-- **Verification**: verify (e.g. Coronary for biological), add_lab_result
-- **Sub-resource**: `/evidence/attachments/` for evidence attachments
+- Polymorphic types: **Testimony**, **Biological**, **Vehicle**, **ID Document**, **Other**
+- CRUD + filters; `create_testimony` for full testimony payload
+- File `upload_attachment` and per-evidence `attachments` listing
+- `verify` (e.g. by Coronary for biological) and `add_lab_result`
+- `/evidence/attachments/` sub-resource
 
 ### 5. Suspects & Interrogation
-
-- **Suspects**: CRUD, link_to_case
-- **Status**: UNDER_PURSUIT, MOST_WANTED, ARRESTED, CLEARED
-- **Actions**: start_investigation, mark_wanted, mark_most_wanted, arrest, clear
-- **Scores**: detective_score, sergeant_score; captain_decision; chief_decision (critical level)
-- **Interrogations**: separate ViewSet for interrogation records
-- **Most Wanted**: public list `GET /suspects/most_wanted/` (AllowAny), ranking by `max(days_wanted) × max(crime_severity)`, reward = rank × 20,000,000 Rials
+- CRUD + `link_to_case`
+- Status: `UNDER_PURSUIT`, `MOST_WANTED`, `ARRESTED`, `CLEARED`
+- Actions: `start_investigation`, `mark_wanted`, `mark_most_wanted`, `arrest`, `clear`
+- Guilt scoring: `detective_score`, `sergeant_score`, `captain_decision`, `chief_decision` (critical level)
+- Separate ViewSet for **interrogations**
+- **Most Wanted** — `GET /suspects/most_wanted/` is **public**; ranking by `max(days_wanted) × max(crime_severity)`; reward = `rank × 20,000,000` Rials
 
 ### 6. Judiciary
-
-- **Trials**: CRUD; start, issue_verdict (guilty/not guilty), add_sentence
-- **Case reports**: full_report (for Judge), generate (create report)
+- Trials CRUD + `start`, `issue_verdict` (guilty / not guilty), `add_sentence`
+- `full_report` for Judge view
+- Case reports — `generate` and list
 
 ### 7. Rewards (Tips)
-
-- **Tips**: submit (base user), officer_review (reject or send to detective), detective_review (approve → unique reward code)
-- **Codes**: lookup (national_id + code, police only), claim (mark as claimed in person, police only)
+- Public `submit` (base user) → Officer `officer_review` (reject or send to detective) → Detective `detective_review` (approve → unique reward code)
+- `codes/lookup` (national_id + code, police only) and `codes/claim` (in-person redemption)
 
 ### 8. Bail
-
-- **Bail**: create (for suspects; level 2/3 crimes, etc.), initiate_payment (Zibal gateway), confirm_payment
-- **Callback**: `POST /api/v1/bail/zibal-callback/` for payment return
+- Bail/bond creation for eligible suspects (e.g. crime level 2/3)
+- `initiate_payment` → redirect to Zibal
+- `confirm_payment` and gateway `POST /bail/zibal-callback/`
 
 ### 9. Statistics
-
-- **Dashboard**: `GET /api/v1/stats/dashboard/` — active_cases, total_solved_cases, total_staff, wanted_suspects, pending_complaints (AllowAny)
-- **Cases / Suspects / Complaints**: stats endpoints for aggregated counts
+- `GET /stats/dashboard/` — public — `active_cases`, `total_solved_cases`, `total_staff`, `wanted_suspects`, `pending_complaints`
+- Per-domain: `/stats/cases/`, `/stats/suspects/`, `/stats/complaints/`
 
 ---
 
-## 🔌 API Reference
+## API Reference
 
 Base URL: `/api/v1/`
 
@@ -157,15 +177,15 @@ Base URL: `/api/v1/`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/register/` | Register new user |
-| POST | `/login/` | Login (username/email/phone/national_id + password) |
+| POST | `/register/` | Register a new user |
+| POST | `/login/` | Login (username / email / phone / national_id + password) |
 | POST | `/token/refresh/` | Refresh JWT |
 | GET / PUT | `/profile/` | Current user profile |
 | GET / POST | `/users/` | List / create users (admin) |
 | GET / PUT / PATCH / DELETE | `/users/{id}/` | User detail |
 | POST | `/users/{id}/assign_roles/` | Set user roles |
-| POST | `/users/{id}/add_role/` | Add role |
-| POST | `/users/{id}/remove_role/` | Remove role |
+| POST | `/users/{id}/add_role/` | Add a role |
+| POST | `/users/{id}/remove_role/` | Remove a role |
 | GET / POST | `/roles/` | List / create roles |
 
 ### Complaints — `/api/v1/complaints/`
@@ -180,7 +200,7 @@ Base URL: `/api/v1/`
 | POST | `/{id}/resubmit/` | Complainant resubmit |
 | POST | `/{id}/escalate/` | Cadet → officer |
 | POST | `/{id}/return_to_cadet/` | Officer → cadet |
-| POST | `/{id}/approve/` | Approve complaint |
+| POST | `/{id}/approve/` | Approve |
 | POST | `/{id}/reject/` | Reject |
 | POST | `/{id}/add_complainant/` | Add complainant |
 
@@ -195,20 +215,20 @@ Base URL: `/api/v1/`
 | POST | `/{id}/assign_detective/` | Assign lead detective |
 | POST | `/{id}/start_investigation/` | Start investigation |
 | POST | `/{id}/identify_suspect/` | Identify suspects |
-| POST | `/{id}/approve_suspects/` | Sergeant approve |
-| POST | `/{id}/reject_suspects/` | Sergeant reject |
+| POST | `/{id}/approve_suspects/` | Sergeant approve suspects |
+| POST | `/{id}/reject_suspects/` | Sergeant reject suspects |
 | POST | `/{id}/start_interrogation/` | Start interrogation |
-| POST | `/{id}/submit_to_captain/` | Send to captain |
+| POST | `/{id}/submit_to_captain/` | Submit to captain |
 | POST | `/{id}/captain_approve/` | Captain approve |
 | POST | `/{id}/escalate_to_chief/` | Escalate (critical) |
 | POST | `/{id}/chief_approve/` | Chief approve |
 | POST | `/{id}/send_to_trial/` | Send to trial |
-| POST | `/{id}/close_solved/` | Close solved |
-| POST | `/{id}/close_unsolved/` | Close unsolved |
+| POST | `/{id}/close_solved/` | Close as solved |
+| POST | `/{id}/close_unsolved/` | Close as unsolved |
 | GET / PUT / PATCH | `/{id}/detective_board/` | Detective board state |
 | POST | `/{id}/add_witness/` | Add witness |
 | POST | `/{id}/add_suspect/` | Add suspect |
-| GET | `/{id}/suspects/` | List suspects of case |
+| GET | `/{id}/suspects/` | Suspects on this case |
 | GET | `/detective-board-cases/` | Cases for detective board |
 
 ### Evidence — `/api/v1/evidence/`
@@ -217,18 +237,18 @@ Base URL: `/api/v1/`
 |--------|----------|-------------|
 | GET / POST | `/` | List / create evidence |
 | GET / PUT / PATCH / DELETE | `/{id}/` | Evidence detail |
-| POST | `/create_testimony/` | Create testimony evidence |
+| POST | `/create_testimony/` | Create testimony |
 | POST | `/{id}/upload_attachment/` | Upload file |
 | GET | `/{id}/attachments/` | List attachments |
 | POST | `/{id}/verify/` | Verify (e.g. Coronary) |
 | POST | `/{id}/add_lab_result/` | Add lab result |
-| GET / POST | `/attachments/` | List / create attachments (sub-resource) |
+| GET / POST | `/attachments/` | Attachments sub-resource |
 
 ### Suspects — `/api/v1/suspects/`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/most_wanted/` | Public Most Wanted list |
+| GET | `/most_wanted/` | **Public** Most Wanted list |
 | GET / POST | `/` | List / create suspects |
 | GET / PUT / PATCH / DELETE | `/{id}/` | Suspect detail |
 | POST | `/{id}/start_investigation/` | Start investigation |
@@ -240,8 +260,8 @@ Base URL: `/api/v1/`
 | POST | `/{id}/sergeant_score/` | Sergeant guilt score |
 | POST | `/{id}/captain_decision/` | Captain decision |
 | POST | `/{id}/chief_decision/` | Chief decision (critical) |
-| POST | `/{id}/link_to_case/` | Link to case |
-| GET / POST | `/interrogations/` | List / create interrogations |
+| POST | `/{id}/link_to_case/` | Link to a case |
+| GET / POST | `/interrogations/` | Interrogations |
 
 ### Judiciary — `/api/v1/judiciary/`
 
@@ -264,9 +284,9 @@ Base URL: `/api/v1/`
 | GET / PUT / PATCH / DELETE | `/tips/{id}/` | Tip detail |
 | POST | `/tips/{id}/officer_review/` | Officer review |
 | POST | `/tips/{id}/detective_review/` | Detective approve → unique code |
-| GET / POST | `/codes/` | List / (internal) reward codes |
+| GET / POST | `/codes/` | Reward codes (internal) |
 | POST | `/codes/lookup/` | Lookup by national_id + code (police) |
-| POST | `/codes/claim/` | Mark reward claimed (police) |
+| POST | `/codes/claim/` | Mark as claimed in person (police) |
 
 ### Bail — `/api/v1/bail/`
 
@@ -275,89 +295,121 @@ Base URL: `/api/v1/`
 | GET / POST | `/bails/` | List / create bail |
 | GET / PUT / PATCH / DELETE | `/bails/{id}/` | Bail detail |
 | POST | `/bails/{id}/initiate_payment/` | Redirect to Zibal |
-| GET | `/bails/{id}/confirm_payment/` | Confirm after payment |
-| POST | `/zibal-callback/` | Payment gateway callback |
+| GET | `/bails/{id}/confirm_payment/` | Confirm payment |
+| POST | `/zibal-callback/` | Zibal gateway callback |
 
 ### Stats — `/api/v1/stats/`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/dashboard/` | Dashboard stats (public) |
+| GET | `/dashboard/` | Public dashboard counters |
 | GET | `/cases/` | Case stats |
 | GET | `/suspects/` | Suspect stats |
-| GET | `/complaints/` | Complaint stats (authenticated) |
+| GET | `/complaints/` | Complaint stats (auth) |
 
-### API Documentation (Swagger / ReDoc)
+### API Documentation
 
-- **Swagger UI**: `http://localhost:8000/api/docs/`
-- **ReDoc**: `http://localhost:8000/api/redoc/`
-- **OpenAPI schema**: `http://localhost:8000/api/schema/`
+- **Swagger UI** — `http://localhost:8001/api/schema/swagger/`
+- **ReDoc** — `http://localhost:8001/api/redoc/`
+- **OpenAPI schema** — `http://localhost:8001/api/schema/`
 
 ---
 
-## 📄 Frontend Pages
+## Frontend Pages
 
 | Route | Page | Description |
 |-------|------|-------------|
-| `/` | HomePage | Intro, stats (e.g. solved cases, staff, active cases) |
-| `/login` | LoginPage | Login |
+| `/` | HomePage | Public landing — intro and dashboard stats |
+| `/login` | LoginPage | Login (multi-field) |
 | `/register` | RegisterPage | Registration |
-| `/most-wanted` | MostWantedPage | Public Most Wanted list |
-| `/bail` | BailPage | Bail info / create |
-| `/bail/return` | BailReturnPage | Return from payment gateway |
-| `/dashboard` | DashboardPage | Role-based dashboard |
+| `/most-wanted` | MostWantedPage | Public Most Wanted list with rewards |
+| `/bail` | BailPage | Bail info / create / pay |
+| `/bail/return` | BailReturnPage | Return from Zibal payment |
+| `/dashboard` | DashboardPage | Role-aware dashboard |
 | `/cases` | CasesPage | Case list |
-| `/cases/new` | CaseCreatePage | Create case (crime scene) |
-| `/cases/:caseId` | CaseDetailPage | Case detail & actions |
-| `/detective-board` | DetectiveBoardPage | Detective board (case list) |
-| `/detective-board/:caseId` | DetectiveBoardPage | Board for one case (drag-drop, links) |
+| `/cases/new` | CaseCreatePage | Create case from crime scene |
+| `/cases/:caseId` | CaseDetailPage | Case detail + workflow actions |
+| `/detective-board` | DetectiveBoardPage | List of cases for the board |
+| `/detective-board/:caseId` | DetectiveBoardPage | Per-case board (drag & drop, links) |
 | `/complaints` | ComplaintsPage | Complaint list |
 | `/complaints/new` | ComplaintCreatePage | Create complaint |
-| `/complaints/:complaintId` | ComplaintDetailPage | Complaint detail & workflow |
+| `/complaints/:complaintId` | ComplaintDetailPage | Complaint detail + workflow |
 | `/suspects` | SuspectPage | Suspect list |
-| `/suspects/:suspectId` | SuspectDetailPage | Suspect detail & actions |
+| `/suspects/:suspectId` | SuspectDetailPage | Suspect detail + actions/scoring |
 | `/evidence` | EvidencePage | Evidence list / create |
-| `/evidence/:id` | EvidenceDetailPage | Evidence detail |
-| `/judiciary` | TrialsListPage | Trials list (Judge/staff) |
+| `/evidence/new` | EvidencePage | Create evidence |
+| `/evidence/:id` | EvidenceDetailPage | Evidence detail + attachments |
+| `/judiciary` | TrialsListPage | Trials list (Judge / staff) |
 | `/trials/:trialId` | TrialDetailPage | Trial detail, verdict, sentence |
-| `/admin` | AdminPage | Front admin (users, roles) |
+| `/admin` | AdminPage | Frontend admin (users / roles) |
 | `/tips` | TipsPage | Tips list |
-| `/tips/new` | TipSubmitPage | Submit tip |
-| `/tips/:tipId` | TipDetailPage | Tip detail & review |
+| `/tips/new` | TipSubmitPage | Submit a tip |
+| `/tips/:tipId` | TipDetailPage | Tip detail + officer/detective review |
 | `/reward-lookup` | RewardLookupPage | Lookup reward by national_id + code (police) |
 
-All protected routes use `PrivateRoute`; navigation is role-aware (e.g. Judiciary for Judge/staff).
+All non-public routes are wrapped in `PrivateRoute`. Navigation is **role-aware** — links such as Judiciary, Admin, and Detective Board only appear for the appropriate roles.
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
-- Python 3.9+
-- Node.js 18+
-- PostgreSQL (or SQLite for backend-only dev)
-- Docker & Docker Compose (optional)
+- Docker & Docker Compose
+- (Or, for local-only dev) Python 3.9+ and Node.js 18+
 
-### Backend
+### One-Command Bring-Up (Docker)
+
+```bash
+./run.sh
+```
+
+This will:
+1. Copy `.env.docker` → `.env` if missing
+2. Stop any existing containers
+3. Build and start `db`, `backend`, `frontend`, and `redis`
+4. Run migrations and load default roles
+5. Print URLs and useful commands
+
+After bring-up:
+
+| Service | URL |
+|---------|-----|
+| Frontend | http://localhost:3001 |
+| Backend API | http://localhost:8001 |
+| Swagger | http://localhost:8001/api/schema/swagger/ |
+| Django Admin | http://localhost:8001/admin/ |
+| PostgreSQL | localhost:5432 |
+| Redis | localhost:6379 |
+
+**Default credentials**: `admin` / `admin123456`
+
+### Manual Docker Compose
+
+```bash
+docker-compose up -d --build
+docker-compose exec backend python manage.py migrate
+docker-compose exec backend python manage.py setup_roles
+docker-compose exec backend python manage.py createsuperuser
+```
+
+### Local Development (no Docker)
+
+**Backend**
 
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env       # Edit if needed
+cp .env.example .env
 python manage.py migrate
-python manage.py setup_roles   # Load default roles
+python manage.py setup_roles
 python manage.py createsuperuser
 python manage.py runserver
 ```
 
-- **API**: `http://localhost:8000/api/v1/`
-- **Admin**: `http://localhost:8000/admin/`
-- **Swagger**: `http://localhost:8000/api/docs/`
-
-### Frontend
+**Frontend**
 
 ```bash
 cd frontend
@@ -365,66 +417,68 @@ npm install
 npm start
 ```
 
-- **App**: `http://localhost:3000`
-
-### Docker
-
-```bash
-docker-compose up -d
-# Then run migrations and setup_roles as above in exec.
-```
-
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Backend
 
 ```bash
-cd backend
-python manage.py test
-# Or per app:
+# Inside Docker
+docker-compose exec backend python manage.py test
+
+# Or locally
+cd backend && python manage.py test
+# Per-app:
 python manage.py test apps.accounts apps.complaints apps.cases
 ```
 
-- **Minimum**: 10 tests (5 in two different apps) — project has 120+ tests across apps.
-- See **[TESTING_GUIDE.md](TESTING_GUIDE.md)** if present.
+The backend ships with 120+ unit tests across the apps.
 
 ### Frontend
 
 ```bash
-cd frontend
-npm test
+docker-compose exec frontend npm test
+# or locally:
+cd frontend && npm test
 ```
+
+### End-to-End
+
+- `e2e-test.sh` — shell script driving HTTP flows through the API
+- `comprehensive_workflow_test.py` — Python workflow test (full lifecycle)
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 | File | Description |
 |------|-------------|
-| **[Doc.md](Doc.md)** | Project checkpoint & full requirements (Persian): roles, crime levels, flows (complaint, case, evidence, detective board, interrogation, trial, Most Wanted, reward, bail), pages, backend/frontend checklists. |
-| **README.md** | This file — overview, structure, features, API summary, frontend routes, quick start. |
-| **ARCHITECTURE.md** | Optional — architecture and design. |
-| **API_DOCUMENTATION.md** | Optional — detailed API reference. |
-| **backend/API_CONTRACT.md** | Optional — API contract. |
+| **[Doc.md](Doc.md)** | Full functional spec & checkpoint (Persian) — roles, crime levels, every flow (complaint, case, evidence, detective board, interrogation, trial, Most Wanted, reward, bail), pages, backend/frontend checklists |
+| **[DOCKER_SETUP.md](DOCKER_SETUP.md)** | Docker setup details |
+| **[SETUP_GUIDE.md](SETUP_GUIDE.md)** | Manual setup walkthrough |
+| **[PROJECT_RUNNING.md](PROJECT_RUNNING.md)** | Operational notes for a running deployment |
+| **[FRONTEND_IMPLEMENTATION.md](FRONTEND_IMPLEMENTATION.md)** | Frontend implementation notes |
+| **[FRONTEND_DELIVERABLES.md](FRONTEND_DELIVERABLES.md)** | Frontend deliverables list |
+| **[FRONTEND_COMPLETION_REPORT.md](FRONTEND_COMPLETION_REPORT.md)** | Frontend completion report |
+| **[WORKFLOW_TEST_REPORT.md](WORKFLOW_TEST_REPORT.md)** | E2E workflow test report |
+| **[FINAL_SUMMARY.md](FINAL_SUMMARY.md)** | Final project summary |
+| **[Missed.md](Missed.md)** | Items / edge cases tracked during implementation |
+| **[Proj_Report.pdf](Proj_Report.pdf)** | Project report (PDF) |
 
 ---
 
-## 🔒 Security & Conventions
+## Security & Conventions
 
-- JWT for API auth; role-based permissions on endpoints
-- Unique constraints: email, phone, national_id
-- CSRF, validation, and secure file upload handling
-- Audit/history where required (e.g. complaint/case transitions)
-
----
-
-## 📄 License
-
-This project is part of the **Web Programming** course (Faculty of Computer Engineering).  
+- **JWT** for API authentication; role-based permissions per endpoint
+- Unique constraints on `email`, `phone`, `national_id`
+- CORS configured for the frontend; CSRF-aware where applicable
+- Validation and secure file upload handling for attachments and evidence
+- Audit / history on key transitions (complaint and case state changes)
+- Externalized configuration via `.env` (`SECRET_KEY`, DB creds, `CORS_ALLOWED_ORIGINS`, `REACT_APP_API_BASE_URL`, …)
 
 ---
 
-**Last Updated**: February 2026  
-**Status**: Full implementation (Backend + Frontend).
+## License
+
+This project is part of the **Web Programming** course (Fall 1404, Faculty of Computer Engineering).
