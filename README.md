@@ -481,4 +481,4 @@ cd frontend && npm test
 
 ## License
 
-This project is part of the **Web Programming** course (Fall 1404, Faculty of Computer Engineering).
+This project is part of the **Web Programming** course (Fall 1404, Faculty of Computer Engineering, Sharif University of Technology).
